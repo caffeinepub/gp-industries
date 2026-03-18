@@ -10,7 +10,7 @@ export interface Employee {
   username: string;
   password: string;
   jobTitle: string;
-  department: string;
+  department?: string;
   status: "active" | "inactive";
 }
 
@@ -65,6 +65,12 @@ export const storage = {
   },
   setAdmin: (admin: AdminUser) =>
     localStorage.setItem("gpAdmin", JSON.stringify(admin)),
+
+  getAdminSecretKey: (): string | null => {
+    return localStorage.getItem("gpAdminSecretKey");
+  },
+  setAdminSecretKey: (key: string) =>
+    localStorage.setItem("gpAdminSecretKey", key),
 
   getEmployees: (): Employee[] => {
     const d = localStorage.getItem("gpEmployees");

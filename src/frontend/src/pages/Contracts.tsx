@@ -1,10 +1,20 @@
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import DownloadButton from "../components/DownloadButton";
 import Layout from "../components/Layout";
 import { useNavigate } from "../lib/router";
 import { generateId, storage } from "../lib/storage";
 import type { ContractRecord } from "../lib/storage";
+
+const emptyForm = {
+  title: "",
+  type: "IN" as "IN" | "OUT",
+  clientVendor: "",
+  value: "",
+  startDate: "",
+  endDate: "",
+  status: "active" as ContractRecord["status"],
+};
 
 export default function Contracts() {
   const navigate = useNavigate();
@@ -16,15 +26,9 @@ export default function Contracts() {
   const [typeFilter, setTypeFilter] = useState<"ALL" | "IN" | "OUT">("ALL");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    type: "IN" as "IN" | "OUT",
-    clientVendor: "",
-    value: "",
-    startDate: "",
-    endDate: "",
-    status: "active" as ContractRecord["status"],
-  });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const display = contracts.filter((c) => {
     if (typeFilter !== "ALL" && c.type !== typeFilter) return false;
@@ -32,28 +36,60 @@ export default function Contracts() {
     return true;
   });
 
+  function openAdd() {
+    setEditId(null);
+    setForm({ ...emptyForm });
+    setShowModal(true);
+  }
+
+  function openEdit(c: ContractRecord) {
+    setEditId(c.id);
+    setForm({
+      title: c.title,
+      type: c.type,
+      clientVendor: c.clientVendor,
+      value: String(c.value),
+      startDate: c.startDate,
+      endDate: c.endDate,
+      status: c.status,
+    });
+    setShowModal(true);
+  }
+
   function save() {
-    const c: ContractRecord = {
-      id: generateId(
-        "CON-",
-        contracts.map((c) => c.id),
-      ),
-      ...form,
-      value: Number.parseFloat(form.value) || 0,
-    };
-    const updated = [...contracts, c];
+    let updated: ContractRecord[];
+    if (editId) {
+      updated = contracts.map((c) =>
+        c.id === editId
+          ? { ...c, ...form, value: Number.parseFloat(form.value) || 0 }
+          : c,
+      );
+    } else {
+      const newC: ContractRecord = {
+        id: generateId(
+          "CON-",
+          contracts.map((c) => c.id),
+        ),
+        ...form,
+        value: Number.parseFloat(form.value) || 0,
+      };
+      updated = [...contracts, newC];
+    }
     storage.setContracts(updated);
     setContracts(updated);
     setShowModal(false);
-    setForm({
-      title: "",
-      type: "IN",
-      clientVendor: "",
-      value: "",
-      startDate: "",
-      endDate: "",
-      status: "active",
-    });
+  }
+
+  function confirmDelete(id: string) {
+    setDeleteConfirm(id);
+  }
+
+  function doDelete() {
+    if (!deleteConfirm) return;
+    const updated = contracts.filter((c) => c.id !== deleteConfirm);
+    storage.setContracts(updated);
+    setContracts(updated);
+    setDeleteConfirm(null);
   }
 
   const statusColor: Record<string, string> = {
@@ -107,7 +143,7 @@ export default function Contracts() {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setShowModal(true)}
+              onClick={openAdd}
               data-ocid="contracts.add.button"
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
               style={{ background: "#2F6FEA" }}
@@ -134,6 +170,7 @@ export default function Contracts() {
                     "Start Date",
                     "End Date",
                     "Status",
+                    ...(isAdmin ? ["Actions"] : []),
                   ].map((h) => (
                     <th
                       key={h}
@@ -148,7 +185,7 @@ export default function Contracts() {
                 {display.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={isAdmin ? 9 : 8}
                       className="px-4 py-8 text-center text-gray-400"
                       data-ocid="contracts.empty_state"
                     >
@@ -194,6 +231,28 @@ export default function Contracts() {
                           {c.status}
                         </span>
                       </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(c)}
+                              data-ocid={`contracts.edit.${idx + 1}`}
+                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                            >
+                              <Pencil size={12} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => confirmDelete(c.id)}
+                              data-ocid={`contracts.delete.${idx + 1}`}
+                              className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -203,6 +262,7 @@ export default function Contracts() {
         </div>
       </div>
 
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
@@ -210,7 +270,9 @@ export default function Contracts() {
             data-ocid="contracts.dialog"
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold">Add Contract</h2>
+              <h2 className="text-lg font-bold">
+                {editId ? "Edit Contract" : "Add Contract"}
+              </h2>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
@@ -317,7 +379,38 @@ export default function Contracts() {
                 className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50"
                 style={{ background: "#2F6FEA" }}
               >
-                Save
+                {editId ? "Update" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              Delete Contract
+            </h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Are you sure you want to delete this contract? This cannot be
+              undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-sm border border-gray-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={doDelete}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              >
+                Delete
               </button>
             </div>
           </div>

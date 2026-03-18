@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import DownloadButton from "../components/DownloadButton";
 import Layout from "../components/Layout";
@@ -15,12 +15,14 @@ export default function Salary() {
   const [year, setYear] = useState(today.getFullYear());
   const [records, setRecords] = useState<SalaryRecord[]>(storage.getSalary());
   const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({
     empId: "",
     basicPay: "",
     allowances: "",
     deductions: "",
   });
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const employees = storage.getEmployees().filter((e) => e.status === "active");
   const years = [
     today.getFullYear() - 2,
@@ -34,19 +36,34 @@ export default function Salary() {
     ? filtered
     : filtered.filter((r) => r.empId === user?.empId);
 
+  function openAdd() {
+    setEditId(null);
+    setForm({ empId: "", basicPay: "", allowances: "", deductions: "" });
+    setShowModal(true);
+  }
+
+  function openEdit(r: SalaryRecord) {
+    setEditId(r.id);
+    setForm({
+      empId: r.empId,
+      basicPay: String(r.basicPay),
+      allowances: String(r.allowances),
+      deductions: String(r.deductions),
+    });
+    setShowModal(true);
+  }
+
   function save() {
     const bp = Number.parseFloat(form.basicPay) || 0;
     const al = Number.parseFloat(form.allowances) || 0;
     const de = Number.parseFloat(form.deductions) || 0;
-    const existing = records.find(
-      (r) => r.empId === form.empId && r.month === month && r.year === year,
-    );
     let updated: SalaryRecord[];
-    if (existing) {
+    if (editId) {
       updated = records.map((r) =>
-        r.id === existing.id
+        r.id === editId
           ? {
               ...r,
+              empId: form.empId,
               basicPay: bp,
               allowances: al,
               deductions: de,
@@ -55,25 +72,50 @@ export default function Salary() {
           : r,
       );
     } else {
-      const newRec: SalaryRecord = {
-        id: generateId(
-          "SAL-",
-          records.map((r) => r.id),
-        ),
-        empId: form.empId,
-        month,
-        year,
-        basicPay: bp,
-        allowances: al,
-        deductions: de,
-        netPay: bp + al - de,
-      };
-      updated = [...records, newRec];
+      const existing = records.find(
+        (r) => r.empId === form.empId && r.month === month && r.year === year,
+      );
+      if (existing) {
+        updated = records.map((r) =>
+          r.id === existing.id
+            ? {
+                ...r,
+                basicPay: bp,
+                allowances: al,
+                deductions: de,
+                netPay: bp + al - de,
+              }
+            : r,
+        );
+      } else {
+        const newRec: SalaryRecord = {
+          id: generateId(
+            "SAL-",
+            records.map((r) => r.id),
+          ),
+          empId: form.empId,
+          month,
+          year,
+          basicPay: bp,
+          allowances: al,
+          deductions: de,
+          netPay: bp + al - de,
+        };
+        updated = [...records, newRec];
+      }
     }
     storage.setSalary(updated);
     setRecords(updated);
     setShowModal(false);
     setForm({ empId: "", basicPay: "", allowances: "", deductions: "" });
+  }
+
+  function doDelete() {
+    if (!deleteConfirm) return;
+    const updated = records.filter((r) => r.id !== deleteConfirm);
+    storage.setSalary(updated);
+    setRecords(updated);
+    setDeleteConfirm(null);
   }
 
   const totalPayroll = display.reduce((s, r) => s + r.netPay, 0);
@@ -120,7 +162,7 @@ export default function Salary() {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setShowModal(true)}
+              onClick={openAdd}
               data-ocid="salary.add.button"
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
               style={{ background: "#2F6FEA" }}
@@ -146,6 +188,7 @@ export default function Salary() {
                     "Allowances",
                     "Deductions",
                     "Net Pay",
+                    ...(isAdmin ? ["Actions"] : []),
                   ].map((h) => (
                     <th
                       key={h}
@@ -160,7 +203,7 @@ export default function Salary() {
                 {display.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={isAdmin ? 8 : 7}
                       className="px-4 py-8 text-center text-gray-400"
                       data-ocid="salary.empty_state"
                     >
@@ -197,6 +240,28 @@ export default function Salary() {
                         <td className="px-4 py-3 font-bold text-gray-900 whitespace-nowrap">
                           RM {r.netPay.toLocaleString()}
                         </td>
+                        {isAdmin && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(r)}
+                                data-ocid={`salary.edit.${idx + 1}`}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                              >
+                                <Pencil size={12} /> Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(r.id)}
+                                data-ocid={`salary.delete.${idx + 1}`}
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                              >
+                                <Trash2 size={12} /> Delete
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -209,7 +274,7 @@ export default function Salary() {
                     style={{ background: "#F4F6F9" }}
                   >
                     <td
-                      colSpan={6}
+                      colSpan={isAdmin ? 7 : 6}
                       className="px-4 py-3 font-bold text-gray-700 text-right"
                     >
                       Total Payroll:
@@ -225,6 +290,7 @@ export default function Salary() {
         </div>
       </div>
 
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
@@ -233,7 +299,7 @@ export default function Salary() {
           >
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-gray-900">
-                Add / Edit Salary
+                {editId ? "Edit Salary" : "Add / Edit Salary"}
               </h2>
               <button
                 type="button"
@@ -254,8 +320,9 @@ export default function Salary() {
                 <select
                   value={form.empId}
                   onChange={(e) => setForm({ ...form, empId: e.target.value })}
+                  disabled={!!editId}
                   data-ocid="salary.employee.select"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50"
                 >
                   <option value="">Select employee...</option>
                   {employees.map((e) => (
@@ -315,7 +382,38 @@ export default function Salary() {
                 className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50"
                 style={{ background: "#2F6FEA" }}
               >
-                Save
+                {editId ? "Update" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              Delete Salary Record
+            </h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Are you sure you want to delete this salary record? This cannot be
+              undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-sm border border-gray-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={doDelete}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              >
+                Delete
               </button>
             </div>
           </div>

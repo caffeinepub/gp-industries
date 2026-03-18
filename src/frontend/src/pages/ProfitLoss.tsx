@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import DownloadButton from "../components/DownloadButton";
 import Layout from "../components/Layout";
@@ -18,12 +18,18 @@ export default function ProfitLoss() {
   const [data, setData] = useState<ProfitLossData>(storage.getProfitLoss());
   const [showModal, setShowModal] = useState(false);
   const [entryType, setEntryType] = useState<EntryType>("income");
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({
     date: "",
     category: "",
     description: "",
     amount: "",
   });
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    type: EntryType;
+  } | null>(null);
+
   const years = [
     today.getFullYear() - 2,
     today.getFullYear() - 1,
@@ -44,32 +50,91 @@ export default function ProfitLoss() {
   const totalExpense = expenseFiltered.reduce((s, e) => s + e.amount, 0);
   const netProfit = totalIncome - totalExpense;
 
+  function openAdd(type: EntryType) {
+    setEntryType(type);
+    setEditId(null);
+    setForm({ date: "", category: "", description: "", amount: "" });
+    setShowModal(true);
+  }
+
+  function openEdit(entry: ProfitLossEntry, type: EntryType) {
+    setEntryType(type);
+    setEditId(entry.id);
+    setForm({
+      date: entry.date,
+      category: entry.category,
+      description: entry.description,
+      amount: String(entry.amount),
+    });
+    setShowModal(true);
+  }
+
   function save() {
     const entry: ProfitLossEntry = {
-      id: generateId(
-        "ENT-",
-        [...data.income, ...data.expenses].map((e) => e.id),
-      ),
+      id:
+        editId ??
+        generateId(
+          "ENT-",
+          [...data.income, ...data.expenses].map((e) => e.id),
+        ),
       date: form.date,
       category: form.category,
       description: form.description,
       amount: Number.parseFloat(form.amount) || 0,
     };
-    const updated: ProfitLossData =
-      entryType === "income"
-        ? { ...data, income: [...data.income, entry] }
-        : { ...data, expenses: [...data.expenses, entry] };
+    let updated: ProfitLossData;
+    if (editId) {
+      updated = {
+        income:
+          entryType === "income"
+            ? data.income.map((e) => (e.id === editId ? entry : e))
+            : data.income,
+        expenses:
+          entryType === "expense"
+            ? data.expenses.map((e) => (e.id === editId ? entry : e))
+            : data.expenses,
+      };
+    } else {
+      updated =
+        entryType === "income"
+          ? { ...data, income: [...data.income, entry] }
+          : { ...data, expenses: [...data.expenses, entry] };
+    }
     storage.setProfitLoss(updated);
     setData(updated);
     setShowModal(false);
     setForm({ date: "", category: "", description: "", amount: "" });
   }
 
+  function doDelete() {
+    if (!deleteConfirm) return;
+    const { id, type } = deleteConfirm;
+    const updated: ProfitLossData = {
+      income:
+        type === "income"
+          ? data.income.filter((e) => e.id !== id)
+          : data.income,
+      expenses:
+        type === "expense"
+          ? data.expenses.filter((e) => e.id !== id)
+          : data.expenses,
+    };
+    storage.setProfitLoss(updated);
+    setData(updated);
+    setDeleteConfirm(null);
+  }
+
   function EntryTable({
     entries,
     title,
     color,
-  }: { entries: ProfitLossEntry[]; title: string; color: string }) {
+    type,
+  }: {
+    entries: ProfitLossEntry[];
+    title: string;
+    color: string;
+    type: EntryType;
+  }) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 min-w-0">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -79,10 +144,7 @@ export default function ProfitLoss() {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => {
-                setEntryType(title === "Income" ? "income" : "expense");
-                setShowModal(true);
-              }}
+              onClick={() => openAdd(type)}
               data-ocid={`pl.add-${title.toLowerCase()}.button`}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-medium"
               style={{ background: color }}
@@ -95,7 +157,13 @@ export default function ProfitLoss() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: "#F4F6F9" }}>
-                {["Date", "Category", "Description", "Amount (RM)"].map((h) => (
+                {[
+                  "Date",
+                  "Category",
+                  "Description",
+                  "Amount (RM)",
+                  ...(isAdmin ? ["Actions"] : []),
+                ].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap"
@@ -109,7 +177,7 @@ export default function ProfitLoss() {
               {entries.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={isAdmin ? 5 : 4}
                     className="px-4 py-6 text-center text-gray-400 text-xs"
                   >
                     No entries
@@ -136,6 +204,26 @@ export default function ProfitLoss() {
                     >
                       {e.amount.toLocaleString()}
                     </td>
+                    {isAdmin && (
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(e, type)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm({ id: e.id, type })}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -190,7 +278,6 @@ export default function ProfitLoss() {
       </div>
 
       <div className="p-4 md:p-8 space-y-6">
-        {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
@@ -226,17 +313,23 @@ export default function ProfitLoss() {
           ))}
         </div>
 
-        {/* Tables */}
         <div className="flex flex-col lg:flex-row gap-6">
-          <EntryTable entries={incomeFiltered} title="Income" color="#16A34A" />
+          <EntryTable
+            entries={incomeFiltered}
+            title="Income"
+            color="#16A34A"
+            type="income"
+          />
           <EntryTable
             entries={expenseFiltered}
             title="Expenses"
             color="#DC2626"
+            type="expense"
           />
         </div>
       </div>
 
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
@@ -245,7 +338,8 @@ export default function ProfitLoss() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">
-                Add {entryType === "income" ? "Income" : "Expense"}
+                {editId ? "Edit" : "Add"}{" "}
+                {entryType === "income" ? "Income" : "Expense"}
               </h2>
               <button
                 type="button"
@@ -297,7 +391,37 @@ export default function ProfitLoss() {
                   background: entryType === "income" ? "#16A34A" : "#DC2626",
                 }}
               >
-                Save
+                {editId ? "Update" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              Delete Entry
+            </h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Are you sure you want to delete this entry? This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-sm border border-gray-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={doDelete}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              >
+                Delete
               </button>
             </div>
           </div>

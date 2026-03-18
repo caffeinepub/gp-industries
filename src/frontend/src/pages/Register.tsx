@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "../lib/router";
+import { Link, useNavigate } from "../lib/router";
 import { storage } from "../lib/storage";
 
 export default function Register() {
@@ -8,17 +8,31 @@ export default function Register() {
     username: "",
     password: "",
     confirm: "",
+    secretKey: "",
   });
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  if (storage.getAdmin()) {
-    navigate("/login");
-    return null;
-  }
+  const adminExists = !!storage.getAdmin();
+  const secretKeyExists = !!storage.getAdminSecretKey();
+  const isFirstTime = !adminExists || !secretKeyExists;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+
+    if (!isFirstTime) {
+      if (form.secretKey !== storage.getAdminSecretKey()) {
+        setError("Incorrect admin secret key. Access denied.");
+        return;
+      }
+    } else {
+      if (!form.secretKey.trim()) {
+        setError("You must set a secret key to protect future registrations.");
+        return;
+      }
+    }
+
     if (form.password !== form.confirm) {
       setError("Passwords do not match.");
       return;
@@ -27,11 +41,15 @@ export default function Register() {
       setError("Password must be at least 4 characters.");
       return;
     }
+
     storage.setAdmin({
       name: form.name,
       username: form.username,
       password: form.password,
     });
+    if (isFirstTime) {
+      storage.setAdminSecretKey(form.secretKey.trim());
+    }
     navigate("/login");
   }
 
@@ -53,32 +71,33 @@ export default function Register() {
           </div>
           <h1 className="text-white text-2xl font-bold">GP INDUSTRIES</h1>
           <p className="text-blue-300 text-sm mt-1">
-            Admin Setup - First Time Registration
+            {isFirstTime
+              ? "Admin Setup - First Time Registration"
+              : "Reset Admin Account"}
           </p>
         </div>
         <div className="bg-white rounded-2xl p-8 shadow-2xl">
           <h2 className="text-gray-800 font-bold text-xl mb-1">
-            Create Admin Account
+            {isFirstTime ? "Create Admin Account" : "Reset Admin Account"}
           </h2>
           <p className="text-gray-500 text-sm mb-6">
-            Set up the administrator account to manage GP Industries
+            {isFirstTime
+              ? "Set up the administrator account and create a secret key to protect future registrations."
+              : "Enter the admin secret key to verify your identity before resetting."}
           </p>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {["name", "username", "password", "confirm"].map((field) => (
+            {[
+              { field: "name", label: "Full Name", type: "text" },
+              { field: "username", label: "Username", type: "text" },
+              { field: "password", label: "Password", type: "password" },
+              { field: "confirm", label: "Confirm Password", type: "password" },
+            ].map(({ field, label, type }) => (
               <div key={field}>
-                <div className="block text-sm font-medium text-gray-700 mb-1 capitalize">
-                  {field === "confirm"
-                    ? "Confirm Password"
-                    : field === "name"
-                      ? "Full Name"
-                      : field.charAt(0).toUpperCase() + field.slice(1)}
+                <div className="block text-sm font-medium text-gray-700 mb-1">
+                  {label}
                 </div>
                 <input
-                  type={
-                    field === "password" || field === "confirm"
-                      ? "password"
-                      : "text"
-                  }
+                  type={type}
                   value={form[field as keyof typeof form]}
                   onChange={(e) =>
                     setForm({ ...form, [field]: e.target.value })
@@ -89,6 +108,31 @@ export default function Register() {
                 />
               </div>
             ))}
+
+            <div className="border-t border-gray-100 pt-4">
+              <div className="block text-sm font-medium text-gray-700 mb-1">
+                {isFirstTime ? "Set Admin Secret Key" : "Admin Secret Key"}
+              </div>
+              <p className="text-xs text-gray-400 mb-2">
+                {isFirstTime
+                  ? "This key will be required to register as admin in the future. Keep it confidential."
+                  : "Enter the secret key to confirm you are authorized to reset this account."}
+              </p>
+              <input
+                type="text"
+                value={form.secretKey}
+                onChange={(e) =>
+                  setForm({ ...form, secretKey: e.target.value })
+                }
+                data-ocid="register.secretKey.input"
+                placeholder={
+                  isFirstTime ? "Create a secret key" : "Enter the secret key"
+                }
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
             {error && (
               <p
                 className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg"
@@ -105,9 +149,17 @@ export default function Register() {
                 background: "linear-gradient(135deg, #2F6FEA, #18B6B2)",
               }}
             >
-              Create Admin Account
+              {isFirstTime ? "Create Admin Account" : "Reset Admin Account"}
             </button>
           </form>
+          <p className="text-center text-sm text-gray-500 mt-4">
+            <Link
+              to="/login"
+              className="text-blue-600 font-medium hover:underline"
+            >
+              Back to Login
+            </Link>
+          </p>
         </div>
       </div>
     </div>

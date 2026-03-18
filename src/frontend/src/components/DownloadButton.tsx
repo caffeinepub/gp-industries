@@ -42,17 +42,10 @@ export default function DownloadButton() {
   function dlEmployees() {
     const emps = storage.getEmployees();
     const rows: string[][] = [
-      ["Employee ID", "Name", "Username", "Job Title", "Department", "Status"],
+      ["Employee ID", "Name", "Username", "Job Title", "Status"],
     ];
     for (const e of emps)
-      rows.push([
-        e.empId,
-        e.name,
-        e.username,
-        e.jobTitle,
-        e.department,
-        e.status,
-      ]);
+      rows.push([e.empId, e.name, e.username, e.jobTitle, e.status]);
     downloadCSV("employee_details.csv", rows);
     setOpen(false);
   }

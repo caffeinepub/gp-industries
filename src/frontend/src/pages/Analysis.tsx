@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
 import Layout from "../components/Layout";
 import { useNavigate } from "../lib/router";
 import { MONTHS, storage } from "../lib/storage";
@@ -13,14 +14,20 @@ export default function Analysis() {
   const today = new Date();
 
   const currentYear = today.getFullYear();
+  const START_YEAR = 2020;
+  const years: number[] = [];
+  for (let y = START_YEAR; y <= currentYear + 1; y++) years.push(y);
+
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+
   const attendanceByMonth = MONTHS.map((_, mi) => {
     const m = mi + 1;
-    const daysInMonth = new Date(currentYear, m, 0).getDate();
+    const daysInMonth = new Date(selectedYear, m, 0).getDate();
     const totalSlots = employees.length * daysInMonth;
     const presentCount = Object.entries(attendance).filter(([k, v]) => {
       const parts = k.split("-");
       return (
-        Number.parseInt(parts[0]) === currentYear &&
+        Number.parseInt(parts[0]) === selectedYear &&
         Number.parseInt(parts[1]) === m &&
         v === "P"
       );
@@ -31,7 +38,7 @@ export default function Analysis() {
   const salaryByMonth = MONTHS.map((_, mi) => {
     const m = mi + 1;
     return salary
-      .filter((s) => s.month === m && s.year === currentYear)
+      .filter((s) => s.month === m && s.year === selectedYear)
       .reduce((sum, s) => sum + s.netPay, 0);
   });
 
@@ -45,13 +52,13 @@ export default function Analysis() {
     const income = pl.income
       .filter((i) => {
         const d = new Date(i.date);
-        return d.getMonth() + 1 === m && d.getFullYear() === currentYear;
+        return d.getMonth() + 1 === m && d.getFullYear() === selectedYear;
       })
       .reduce((s, i) => s + i.amount, 0);
     const expense = pl.expenses
       .filter((e) => {
         const d = new Date(e.date);
-        return d.getMonth() + 1 === m && d.getFullYear() === currentYear;
+        return d.getMonth() + 1 === m && d.getFullYear() === selectedYear;
       })
       .reduce((s, e) => s + e.amount, 0);
     return { income, expense, net: income - expense };
@@ -75,7 +82,31 @@ export default function Analysis() {
             Analysis &amp; Insights
           </h1>
         </div>
-        <span className="text-sm text-gray-500">{currentYear} Overview</span>
+        <div className="flex items-center gap-3">
+          <label
+            htmlFor="year-select"
+            className="text-sm text-gray-500 font-medium"
+          >
+            Year:
+          </label>
+          <select
+            id="year-select"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+                {y === currentYear
+                  ? " (Current)"
+                  : y === currentYear + 1
+                    ? " (Next)"
+                    : ""}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="p-4 md:p-8 space-y-6">
@@ -98,7 +129,7 @@ export default function Analysis() {
               color: "#EA8C2F",
             },
             {
-              label: "YTD Net Profit",
+              label: `${selectedYear} Net Profit`,
               value: `RM ${plByMonth.reduce((s, m) => s + m.net, 0).toLocaleString()}`,
               color: "#16A34A",
             },
@@ -123,7 +154,7 @@ export default function Analysis() {
         {/* Attendance Rate */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h2 className="font-bold text-gray-800 mb-4">
-            Attendance Rate by Month ({currentYear})
+            Attendance Rate by Month ({selectedYear})
           </h2>
           <div className="flex items-end gap-1 md:gap-2 h-32">
             {MONTHS.map((m, i) => (
@@ -154,7 +185,7 @@ export default function Analysis() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <h2 className="font-bold text-gray-800 mb-4">
-              Monthly Payroll (RM)
+              Monthly Payroll (RM) — {selectedYear}
             </h2>
             <div className="space-y-2">
               {MONTHS.map((m, i) => (
@@ -221,7 +252,7 @@ export default function Analysis() {
         {/* Monthly P&L table */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h2 className="font-bold text-gray-800 mb-4">
-            Monthly Profit &amp; Loss ({currentYear})
+            Monthly Profit &amp; Loss ({selectedYear})
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -278,15 +309,17 @@ export default function Analysis() {
 
         {/* Key Insights */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h2 className="font-bold text-gray-800 mb-4">Key Insights</h2>
+          <h2 className="font-bold text-gray-800 mb-4">
+            Key Insights — {selectedYear}
+          </h2>
           <ul className="space-y-2">
             {(
               [
                 `Total workforce: ${employees.filter((e) => e.status === "active").length} active employees out of ${employees.length}`,
                 `Contracts portfolio: ${inContracts.length} client contracts (IN) vs ${outContracts.length} vendor contracts (OUT)`,
-                `Year-to-date payroll: RM ${salaryByMonth.reduce((s, v) => s + v, 0).toLocaleString()}`,
+                `${selectedYear} payroll total: RM ${salaryByMonth.reduce((s, v) => s + v, 0).toLocaleString()}`,
                 `Best attendance month: ${MONTHS[attendanceByMonth.indexOf(Math.max(...attendanceByMonth, 0))] || "N/A"} (${Math.max(...attendanceByMonth, 0)}%)`,
-                `Net profit/loss this year: RM ${plByMonth.reduce((s, m) => s + m.net, 0).toLocaleString()}`,
+                `Net profit/loss for ${selectedYear}: RM ${plByMonth.reduce((s, m) => s + m.net, 0).toLocaleString()}`,
               ] as string[]
             ).map((insight, idx) => (
               <li

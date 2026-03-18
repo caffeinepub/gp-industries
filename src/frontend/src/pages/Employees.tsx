@@ -1,4 +1,12 @@
-import { ArrowLeft, Plus, UserCheck, UserX, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit2,
+  Plus,
+  Trash2,
+  UserCheck,
+  UserX,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import DownloadButton from "../components/DownloadButton";
 import Layout from "../components/Layout";
@@ -6,14 +14,9 @@ import { useNavigate } from "../lib/router";
 import { generateId, storage } from "../lib/storage";
 import type { Employee } from "../lib/storage";
 
-const DEPARTMENTS = [
-  "hr",
-  "finance",
-  "marketing",
-  "sales",
-  "engineering",
-  "operations",
-];
+type ModalMode = "add" | "edit";
+
+const emptyForm = { name: "", username: "", password: "", jobTitle: "" };
 
 export default function Employees() {
   const navigate = useNavigate();
@@ -23,31 +26,54 @@ export default function Employees() {
     storage.getEmployees(),
   );
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    username: "",
-    password: "",
-    jobTitle: "",
-    department: "hr",
-  });
+  const [modalMode, setModalMode] = useState<ModalMode>("add");
+  const [editingEmpId, setEditingEmpId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
   const newEmpId = generateId(
     "EMP-",
     employees.map((e) => e.empId),
   );
 
-  function save() {
-    const emp: Employee = { empId: newEmpId, ...form, status: "active" };
-    const updated = [...employees, emp];
-    storage.setEmployees(updated);
-    setEmployees(updated);
-    setShowModal(false);
+  function openAdd() {
+    setForm(emptyForm);
+    setModalMode("add");
+    setEditingEmpId(null);
+    setShowModal(true);
+  }
+
+  function openEdit(emp: Employee) {
     setForm({
-      name: "",
-      username: "",
-      password: "",
-      jobTitle: "",
-      department: "hr",
+      name: emp.name,
+      username: emp.username,
+      password: emp.password,
+      jobTitle: emp.jobTitle,
     });
+    setModalMode("edit");
+    setEditingEmpId(emp.empId);
+    setShowModal(true);
+  }
+
+  function closeModal() {
+    setShowModal(false);
+    setForm(emptyForm);
+    setEditingEmpId(null);
+  }
+
+  function save() {
+    if (modalMode === "add") {
+      const emp: Employee = { empId: newEmpId, ...form, status: "active" };
+      const updated = [...employees, emp];
+      storage.setEmployees(updated);
+      setEmployees(updated);
+    } else if (modalMode === "edit" && editingEmpId) {
+      const updated = employees.map((e) =>
+        e.empId === editingEmpId ? { ...e, ...form } : e,
+      );
+      storage.setEmployees(updated);
+      setEmployees(updated);
+    }
+    closeModal();
   }
 
   function toggleStatus(empId: string) {
@@ -62,6 +88,13 @@ export default function Employees() {
           }
         : e,
     );
+    storage.setEmployees(updated);
+    setEmployees(updated);
+  }
+
+  function deleteEmployee(empId: string, name: string) {
+    if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
+    const updated = employees.filter((e) => e.empId !== empId);
     storage.setEmployees(updated);
     setEmployees(updated);
   }
@@ -88,7 +121,7 @@ export default function Employees() {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setShowModal(true)}
+              onClick={openAdd}
               data-ocid="employees.add.button"
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium"
               style={{ background: "#2F6FEA" }}
@@ -111,9 +144,8 @@ export default function Employees() {
                     "Full Name",
                     "Username",
                     "Job Title",
-                    "Department",
                     "Status",
-                    ...(isAdmin ? ["Action"] : []),
+                    ...(isAdmin ? ["Actions"] : []),
                   ].map((h) => (
                     <th
                       key={h}
@@ -128,7 +160,7 @@ export default function Employees() {
                 {displayEmps.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="px-4 py-8 text-center text-gray-400"
                       data-ocid="employees.empty_state"
                     >
@@ -154,9 +186,6 @@ export default function Employees() {
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                         {emp.jobTitle}
                       </td>
-                      <td className="px-4 py-3 capitalize text-gray-600">
-                        {emp.department}
-                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -175,14 +204,34 @@ export default function Employees() {
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => toggleStatus(emp.empId)}
-                            data-ocid={`employees.toggle.${idx + 1}`}
-                            className="text-xs px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors whitespace-nowrap"
-                          >
-                            Toggle Status
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(emp)}
+                              data-ocid={`employees.edit_button.${idx + 1}`}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
+                            >
+                              <Edit2 size={12} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleStatus(emp.empId)}
+                              data-ocid={`employees.toggle.${idx + 1}`}
+                              className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                            >
+                              Toggle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deleteEmployee(emp.empId, emp.name)
+                              }
+                              data-ocid={`employees.delete_button.${idx + 1}`}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -194,7 +243,6 @@ export default function Employees() {
         </div>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
@@ -203,11 +251,11 @@ export default function Employees() {
           >
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-gray-900">
-                Add New Employee
+                {modalMode === "add" ? "Add New Employee" : "Edit Employee"}
               </h2>
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 data-ocid="employees.close_button"
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -215,16 +263,18 @@ export default function Employees() {
               </button>
             </div>
             <div className="space-y-4">
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase">
-                  Employee ID (Auto-generated)
+              {modalMode === "add" && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase">
+                    Employee ID (Auto-generated)
+                  </div>
+                  <input
+                    value={newEmpId}
+                    readOnly
+                    className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 font-mono text-blue-600 font-semibold"
+                  />
                 </div>
-                <input
-                  value={newEmpId}
-                  readOnly
-                  className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 font-mono text-blue-600 font-semibold"
-                />
-              </div>
+              )}
               {[
                 { key: "name", label: "Full Name" },
                 { key: "username", label: "Username" },
@@ -236,7 +286,7 @@ export default function Employees() {
                     {f.label}
                   </div>
                   <input
-                    type={f.key === "password" ? "password" : "text"}
+                    type="text"
                     value={form[f.key as keyof typeof form]}
                     onChange={(e) =>
                       setForm({ ...form, [f.key]: e.target.value })
@@ -246,30 +296,11 @@ export default function Employees() {
                   />
                 </div>
               ))}
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase">
-                  Department
-                </div>
-                <select
-                  value={form.department}
-                  onChange={(e) =>
-                    setForm({ ...form, department: e.target.value })
-                  }
-                  data-ocid="employees.department.select"
-                  className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 capitalize"
-                >
-                  {DEPARTMENTS.map((d) => (
-                    <option key={d} value={d} className="capitalize">
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 data-ocid="employees.cancel_button"
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
@@ -282,7 +313,7 @@ export default function Employees() {
                 className="px-4 py-2 text-sm text-white rounded-lg"
                 style={{ background: "#2F6FEA" }}
               >
-                Save Employee
+                {modalMode === "add" ? "Save Employee" : "Update Employee"}
               </button>
             </div>
           </div>

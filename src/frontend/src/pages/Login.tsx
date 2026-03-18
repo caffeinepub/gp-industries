@@ -9,8 +9,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const adminExists = !!storage.getAdmin();
-
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -130,17 +128,15 @@ export default function Login() {
             </button>
           </form>
 
-          {!adminExists && (
-            <p className="text-center text-sm text-gray-500 mt-4">
-              First time?{" "}
-              <Link
-                to="/register"
-                className="text-blue-600 font-medium hover:underline"
-              >
-                Register as Admin
-              </Link>
-            </p>
-          )}
+          <p className="text-center text-sm text-gray-500 mt-4">
+            Admin?{" "}
+            <Link
+              to="/register"
+              className="text-blue-600 font-medium hover:underline"
+            >
+              Register / Reset Admin
+            </Link>
+          </p>
         </div>
 
         <div className="mt-6 text-center">
