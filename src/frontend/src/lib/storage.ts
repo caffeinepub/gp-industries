@@ -72,6 +72,12 @@ export const storage = {
   setAdminSecretKey: (key: string) =>
     localStorage.setItem("gpAdminSecretKey", key),
 
+  getSecretKeyHint: (): string | null => {
+    return localStorage.getItem("gpSecretKeyHint");
+  },
+  setSecretKeyHint: (hint: string) =>
+    localStorage.setItem("gpSecretKeyHint", hint),
+
   getEmployees: (): Employee[] => {
     const d = localStorage.getItem("gpEmployees");
     return d ? JSON.parse(d) : [];

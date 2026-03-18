@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "./lib/router";
 import { storage } from "./lib/storage";
 import Analysis from "./pages/Analysis";
 import Attendance from "./pages/Attendance";
+import ChangeSecretKey from "./pages/ChangeSecretKey";
 import Contracts from "./pages/Contracts";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
@@ -76,6 +77,14 @@ export default function App() {
           element={
             <Protected>
               <Analysis />
+            </Protected>
+          }
+        />
+        <Route
+          path="/change-secret-key"
+          element={
+            <Protected>
+              <ChangeSecretKey />
             </Protected>
           }
         />

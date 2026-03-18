@@ -9,6 +9,8 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const secretKeyHint = storage.getSecretKeyHint();
+
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -127,6 +129,15 @@ export default function Login() {
               Sign In
             </button>
           </form>
+
+          {secretKeyHint && (
+            <div className="mt-4 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
+              <p className="text-xs text-blue-600">
+                <span className="font-semibold">Secret Key Hint:</span>{" "}
+                {secretKeyHint}
+              </p>
+            </div>
+          )}
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Admin?{" "}

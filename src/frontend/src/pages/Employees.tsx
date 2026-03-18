@@ -103,6 +103,16 @@ export default function Employees() {
     ? employees
     : employees.filter((e) => e.empId === user?.empId);
 
+  const headers = [
+    "Employee ID",
+    "Full Name",
+    "Username",
+    "Password",
+    "Job Title",
+    "Status",
+    ...(isAdmin ? ["Actions"] : []),
+  ];
+
   return (
     <Layout>
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8 md:py-5 bg-white border-b border-gray-100 shadow-sm">
@@ -139,14 +149,7 @@ export default function Employees() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: "#F4F6F9" }}>
-                  {[
-                    "Employee ID",
-                    "Full Name",
-                    "Username",
-                    "Job Title",
-                    "Status",
-                    ...(isAdmin ? ["Actions"] : []),
-                  ].map((h) => (
+                  {headers.map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap"
@@ -160,7 +163,7 @@ export default function Employees() {
                 {displayEmps.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={headers.length}
                       className="px-4 py-8 text-center text-gray-400"
                       data-ocid="employees.empty_state"
                     >
@@ -182,6 +185,9 @@ export default function Employees() {
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {emp.username}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-gray-700">
+                        {emp.password}
                       </td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                         {emp.jobTitle}

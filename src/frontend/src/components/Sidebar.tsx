@@ -4,8 +4,10 @@ import {
   ClipboardCheck,
   DollarSign,
   FileText,
+  KeyRound,
   LayoutDashboard,
   LogOut,
+  Trash2,
   TrendingUp,
   Users,
   X,
@@ -34,6 +36,22 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const user = storage.getCurrentUser();
 
   function logout() {
+    storage.setCurrentUser(null);
+    navigate("/login");
+  }
+
+  function deleteAdminAccount() {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete the admin account? You will be logged out and the admin account will be removed. This cannot be undone.",
+      )
+    )
+      return;
+    localStorage.removeItem("gpAdmin");
+    localStorage.removeItem("gpAdminSecretKey");
+    localStorage.removeItem("gpSecretKeyHint");
+    localStorage.removeItem("gpSecretKeyChangeLocked");
+    localStorage.removeItem("gpSecretKeyChangeAttempts");
     storage.setCurrentUser(null);
     navigate("/login");
   }
@@ -112,10 +130,38 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             </Link>
           );
         })}
+
+        {/* Change Secret Key -- admin only */}
+        {user?.role === "admin" && (
+          <Link
+            to="/change-secret-key"
+            onClick={onClose}
+            data-ocid="nav.change-secret-key.link"
+            className={`flex items-center gap-3 px-6 py-3 mx-2 rounded-lg mb-1 text-sm transition-all ${
+              location.pathname === "/change-secret-key"
+                ? "bg-white/15 text-white font-semibold"
+                : "text-blue-200 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <KeyRound size={18} />
+            Change Secret Key
+          </Link>
+        )}
       </nav>
 
-      {/* Logout */}
-      <div className="px-4 py-4 border-t border-white/10">
+      {/* Bottom actions */}
+      <div className="px-4 py-4 border-t border-white/10 space-y-1">
+        {user?.role === "admin" && (
+          <button
+            type="button"
+            onClick={deleteAdminAccount}
+            data-ocid="nav.delete_admin.button"
+            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all"
+          >
+            <Trash2 size={18} />
+            Delete Admin Account
+          </button>
+        )}
         <button
           type="button"
           onClick={logout}

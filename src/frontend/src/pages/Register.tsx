@@ -9,26 +9,23 @@ export default function Register() {
     password: "",
     confirm: "",
     secretKey: "",
+    secretKeyHint: "",
   });
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const adminExists = !!storage.getAdmin();
   const secretKeyExists = !!storage.getAdminSecretKey();
-  const isFirstTime = !adminExists || !secretKeyExists;
+  const isFirstTime = !adminExists;
+  const needsSecretVerify = adminExists && secretKeyExists;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!isFirstTime) {
+    if (needsSecretVerify) {
       if (form.secretKey !== storage.getAdminSecretKey()) {
         setError("Incorrect admin secret key. Access denied.");
-        return;
-      }
-    } else {
-      if (!form.secretKey.trim()) {
-        setError("You must set a secret key to protect future registrations.");
         return;
       }
     }
@@ -47,8 +44,11 @@ export default function Register() {
       username: form.username,
       password: form.password,
     });
-    if (isFirstTime) {
+    if (isFirstTime && form.secretKey.trim()) {
       storage.setAdminSecretKey(form.secretKey.trim());
+      if (form.secretKeyHint.trim()) {
+        storage.setSecretKeyHint(form.secretKeyHint.trim());
+      }
     }
     navigate("/login");
   }
@@ -82,7 +82,7 @@ export default function Register() {
           </h2>
           <p className="text-gray-500 text-sm mb-6">
             {isFirstTime
-              ? "Set up the administrator account and create a secret key to protect future registrations."
+              ? "Set up the administrator account. You may optionally set a secret key to protect future registrations."
               : "Enter the admin secret key to verify your identity before resetting."}
           </p>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,11 +111,16 @@ export default function Register() {
 
             <div className="border-t border-gray-100 pt-4">
               <div className="block text-sm font-medium text-gray-700 mb-1">
-                {isFirstTime ? "Set Admin Secret Key" : "Admin Secret Key"}
+                {isFirstTime ? "Admin Secret Key" : "Admin Secret Key"}
+                {isFirstTime && (
+                  <span className="text-gray-400 font-normal ml-1">
+                    (optional)
+                  </span>
+                )}
               </div>
               <p className="text-xs text-gray-400 mb-2">
                 {isFirstTime
-                  ? "This key will be required to register as admin in the future. Keep it confidential."
+                  ? "Optional: Set a secret key to protect future registrations. Leave blank to skip."
                   : "Enter the secret key to confirm you are authorized to reset this account."}
               </p>
               <input
@@ -126,12 +131,37 @@ export default function Register() {
                 }
                 data-ocid="register.secretKey.input"
                 placeholder={
-                  isFirstTime ? "Create a secret key" : "Enter the secret key"
+                  isFirstTime
+                    ? "Create a secret key (optional)"
+                    : "Enter the secret key"
                 }
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                required={needsSecretVerify}
               />
             </div>
+
+            {isFirstTime && (
+              <div>
+                <div className="block text-sm font-medium text-gray-700 mb-1">
+                  Secret Key Hint{" "}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-2">
+                  A hint shown on the login page to remind you of your key --
+                  without revealing it. E.g. "my first car"
+                </p>
+                <input
+                  type="text"
+                  value={form.secretKeyHint}
+                  onChange={(e) =>
+                    setForm({ ...form, secretKeyHint: e.target.value })
+                  }
+                  data-ocid="register.secretKeyHint.input"
+                  placeholder="Enter a hint to remember your key"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
 
             {error && (
               <p
